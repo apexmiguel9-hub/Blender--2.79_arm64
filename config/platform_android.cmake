@@ -2,19 +2,30 @@
 
 # Zlib - required
 find_package(ZLIB REQUIRED)
+add_definitions(-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE)
 
-# JPEG
+# Platform link libraries for Android NDK
+list(APPEND PLATFORM_LINKLIBS -lc -lm -ldl -llog)
+find_package(Threads REQUIRED)
+list(APPEND PLATFORM_LINKLIBS ${CMAKE_THREAD_LIBS_INIT})
+set(PTHREADS_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+
+# JPEG (optional)
 find_package(JPEG QUIET)
-
-# PNG (requires Zlib)
-if(PNG_FOUND)
-    # already found
-else()
-    find_package(PNG QUIET)
+if(NOT JPEG_FOUND)
+    set(JPEG_LIBRARIES "")
+    set(WITH_IMAGE_JPEG OFF)
 endif()
 
-# Freetype (requires PNG and Zlib)
-find_package(Freetype QUIET)
+# PNG (optional)
+find_package(PNG QUIET)
+if(NOT PNG_FOUND)
+    set(PNG_LIBRARIES "")
+    set(WITH_IMAGE_PNG OFF)
+endif()
 
-# International (ICU)
-find_package(ICU QUIET)
+# Freetype (optional)
+find_package(Freetype QUIET)
+if(NOT FREETYPE_FOUND)
+    set(FREETYPE_LIBRARY "")
+endif()

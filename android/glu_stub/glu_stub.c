@@ -1,10 +1,9 @@
 #include <GL/gl.h>
-#include <GL/glu.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-typedef struct {
+typedef struct GLUquadric {
 	GLenum drawStyle;
 } GLUquadric;
 

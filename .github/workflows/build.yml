@@ -39,7 +39,7 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build pkg-config bison flex gettext
+          sudo apt-get install -y ninja-build pkg-config bison flex gettext gcc
 
       - name: Build Android dependencies (zlib, jpeg, png)
         run: |
@@ -71,6 +71,7 @@ jobs:
       - name: Build host makesdna tool
         run: |
           # Build makesdna for HOST (x86_64) so it can run during cross-compilation
+          mkdir -p ${{ github.workspace }}/host-tools
           cd blender279
           gcc -o ${{ github.workspace }}/host-tools/makesdna \
             -I intern/guardedalloc \

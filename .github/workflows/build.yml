@@ -48,9 +48,9 @@ jobs:
           export COMMON_CMAKE="-G Ninja -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=${{ env.ANDROID_API }} -DCMAKE_INSTALL_PREFIX=$PREFIX"
           mkdir -p $PREFIX
 
-          # Build zlib
+          # Build zlib (static only - needed for datatoc_icon static linking)
           git clone --depth 1 --branch v1.3.1 https://github.com/madler/zlib /tmp/zlib
-          cmake -S /tmp/zlib -B /tmp/zlib/build $COMMON_CMAKE
+          cmake -S /tmp/zlib -B /tmp/zlib/build $COMMON_CMAKE -DBUILD_SHARED_LIBS=OFF
           ninja -C /tmp/zlib/build install
 
           # Build libjpeg-turbo
@@ -132,6 +132,9 @@ jobs:
             -DWITH_IMAGE_OPENEXR=OFF \
             -DGL4ES_LIBRARY=${{ github.workspace }}/gl4es-install/lib/libGL.a \
             -DGL4ES_INCLUDE_DIR=${{ github.workspace }}/gl4es-install/include \
+            -DZLIB_LIBRARY=${{ github.workspace }}/android-libs/lib/libz.a \
+            -DPNG_LIBRARY=${{ github.workspace }}/android-libs/lib/libpng.a \
+            -DJPEG_LIBRARY=${{ github.workspace }}/android-libs/lib/libjpeg.a \
             -DCMAKE_C_FLAGS="-fPIC -static-libgcc -Os -DANDROID" \
             -DCMAKE_CXX_FLAGS="-fPIC -static-libstdc++ -Os -DANDROID" \
             -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \

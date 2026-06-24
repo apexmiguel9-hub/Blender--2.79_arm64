@@ -2,32 +2,21 @@ name: Build Blender 2.79b Android .so
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      config:
-        description: 'Feature config (modelling, animation, full)'
-        required: true
-        default: 'modelling'
 
 env:
-  BLENDER_VERSION: 2.79b
   ANDROID_API: 24
   NDK_VERSION: r26b
 
 jobs:
   build:
-    name: Build for ${{ matrix.arch }}
+    name: Build libblender.so for ARM64
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        arch: [arm64]
-        # arch: [arm64, armv7a]
-      fail-fast: false
-
     steps:
+      - name: Checkout this repo (patches, wrappers, scripts)
+        uses: actions/checkout@v4
+
       - name: Checkout Blender 2.79b
         uses: actions/checkout@v4
         with:
@@ -41,72 +30,54 @@ jobs:
           repository: ptitSeb/gl4es
           path: gl4es
 
-      - name: Checkout project patches
-        uses: actions/checkout@v4
-        with:
-          path: patches
-
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: false
 
-      - name: Install dependencies
+      - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            cmake make ninja-build \
-            libx11-dev libxi-dev \
-            libssl-dev \
-            python3 python3-dev \
-            pkg-config \
-            bison flex \
-            libxml2-dev \
-            yasm \
-            libtheora-dev \
-            libvorbis-dev \
-            libogg-dev \
-            libsdl2-dev \
-            libopenjpeg-dev \
-            libjpeg-dev \
-            libpng-dev \
-            libtiff-dev \
-            gettext
+          sudo apt-get install -y ninja-build pkg-config bison flex gettext
 
-      - name: Apply Blender patches
+      - name: Apply Android patches to Blender
         run: |
-          cd blender279
-          git apply ../patches/patches/*.patch || true
+          python3 ${{ github.workspace }}/scripts/apply_patches.py \
+            ${{ github.workspace }}/blender279 \
+            ${{ github.workspace }}
 
-      - name: Build GL4ES for Android
+      - name: Build GL4ES static for Android
         run: |
           cd gl4es
-          mkdir build && cd build
-          cmake .. \
+          mkdir -p build && cd build
+          cmake -G Ninja .. \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=${{ env.ANDROID_API }} \
-            -DCMAKE_INSTALL_PREFIX=../install \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/gl4es-install \
             -DSTATICLIB=ON \
             -DDEFAULT_ES=2 \
             -DNO_INIT_CONSTRUCTOR=ON
-          make -j$(nproc)
-          make install
+          ninja -j$(nproc)
+          ninja install
+          echo "=== GL4ES output ==="
+          find ${{ github.workspace }}/gl4es-install -type f
 
       - name: Configure Blender for Android
+        continue-on-error: true
+        id: configure
         run: |
-          mkdir blender279/build
-          cd blender279/build
-          cmake .. \
+          mkdir -p blender279/build && cd blender279/build
+
+          cmake -G Ninja .. \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=${{ env.ANDROID_API }} \
-            -DCMAKE_INSTALL_PREFIX=../install \
             -DWITH_BLENDER=ON \
             -DWITH_PLAYER=OFF \
-            -DWITH_CYCLES=ON \
             -DWITH_GAMEENGINE=OFF \
+            -DWITH_CYCLES=OFF \
             -DWITH_COMPOSITOR=OFF \
             -DWITH_FREESTYLE=OFF \
             -DWITH_OPENCOLORIO=OFF \
@@ -114,43 +85,60 @@ jobs:
             -DWITH_CODEC_FFMPEG=OFF \
             -DWITH_CODEC_SNDFILE=OFF \
             -DWITH_OPENAL=OFF \
-            -DWITH_SDL=ON \
-            -DWITH_GL_EGL=ON \
-            -DWITH_SYSTEM_GLES=ON \
-            -DWITH_PYTHON=ON \
+            -DWITH_SDL=OFF \
+            -DWITH_PYTHON=OFF \
             -DWITH_INTERNATIONAL=OFF \
             -DWITH_INSTALL_PORTABLE=ON \
+            -DWITH_ANDROID_MODULE=ON \
+            -DWITH_HEADLESS=OFF \
+            -DWITH_OPENMP=OFF \
             -DWITH_GHOST_DEBUG=OFF \
-            -DOPENGLES_LIBRARY=${{ github.workspace }}/gl4es/install/lib/libGLESv2.so \
-            -DOPENGLES_EGL_LIBRARY=${{ github.workspace }}/gl4es/install/lib/libEGL.so \
-            -DCMAKE_C_FLAGS="-fPIC -static-libgcc" \
-            -DCMAKE_CXX_FLAGS="-fPIC -static-libstdc++" \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++"
+            -DWITH_IMAGE_JPEG=ON \
+            -DWITH_IMAGE_PNG=ON \
+            -DWITH_IMAGE_TIFF=OFF \
+            -DWITH_IMAGE_OPENEXR=OFF \
+            -DGL4ES_LIBRARY=${{ github.workspace }}/gl4es-install/lib/libGL.a \
+            -DGL4ES_INCLUDE_DIR=${{ github.workspace }}/gl4es-install/include \
+            -DCMAKE_C_FLAGS="-fPIC -static-libgcc -Os -DANDROID" \
+            -DCMAKE_CXX_FLAGS="-fPIC -static-libstdc++ -Os -DANDROID" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+            -DCMAKE_SKIP_RPATH=ON \
+            -DCMAKE_SKIP_INSTALL_RPATH=ON 2>&1 | tee cmake_config.log
 
-      - name: Build Blender as shared library
+      - name: Show CMake error on failure
+        if: steps.configure.outcome == 'failure'
+        run: |
+          echo "=== CMake Configuration Failed ==="
+          cat blender279/build/cmake_config.log
+          echo "=== CMakeError.log ==="
+          cat blender279/build/CMakeFiles/CMakeError.log 2>/dev/null || true
+
+      - name: Build Blender
+        if: steps.configure.outcome == 'success'
+        continue-on-error: true
         run: |
           cd blender279/build
-          # Override the executable build to produce .so
-          cmake -DBUILD_SHARED_LIBS=ON .
-          make -j$(nproc) blender
-          
-          # Rename the output
-          mkdir -p ${{ github.workspace }}/output
-          if [ -f bin/blender ]; then
-            cp bin/blender ${{ github.workspace }}/output/libblender279.so
-          elif [ -f lib/blender.so ]; then
-            cp lib/blender.so ${{ github.workspace }}/output/libblender279.so
-          fi
+          ninja -j$(nproc) 2>&1 | tee build.log
 
-      - name: Bundle GL4ES with Blender
+      - name: Collect outputs
+        if: always()
         run: |
-          cp ${{ github.workspace }}/gl4es/install/lib/libGL.so ${{ github.workspace }}/output/
-          cp ${{ github.workspace }}/gl4es/install/lib/libEGL.so ${{ github.workspace }}/output/
-          cp ${{ github.workspace }}/gl4es/install/lib/libGLESv2.so ${{ github.workspace }}/output/
+          mkdir -p ${{ github.workspace }}/output
+          echo "=== Searching for built files ==="
+          find ${{ github.workspace }}/blender279/build -name "*.so" -o -name "*.a" -o -name "blender" 2>/dev/null | head -30
+          find ${{ github.workspace }}/blender279/build -name "libblender*" 2>/dev/null | head -10
+          # Copy logs
+          cp blender279/build/cmake_config.log ${{ github.workspace }}/output/ 2>/dev/null || true
+          cp blender279/build/build.log ${{ github.workspace }}/output/ 2>/dev/null || true
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: blender279-${{ matrix.arch }}-${{ github.event.inputs.config || 'modelling' }}
+          name: blender279-build-output
           path: ${{ github.workspace }}/output/*

@@ -52,6 +52,9 @@ jobs:
           # pnglibconf.h is a generated file; copy from prebuilt
           cp "$LIBDIR/Png/include/libpng-1.6.40/scripts/pnglibconf.h.prebuilt" \
              "$LIBDIR/Png/include/libpng-1.6.40/pnglibconf.h"
+          # Android NDK doesn't have execinfo.h / backtrace()
+          sed -i 's|#  if defined(HAVE_EXECINFO_H)|#  if defined(HAVE_EXECINFO_H) \&\& !defined(__ANDROID__)|' \
+            blender36/source/blender/blenlib/intern/system.c
           echo "=== Patched paths ==="
 
       - name: Configure Blender 3.6 for Android
@@ -133,6 +136,7 @@ jobs:
       - name: Build Blender
         if: steps.configure.outcome == 'success'
         run: |
+          set -o pipefail
           cd blender36/build
           ninja -j$(nproc) 2>&1 | tee build.log
 

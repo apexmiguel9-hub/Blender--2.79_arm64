@@ -146,6 +146,19 @@ else()
 endif()'''
     content = content.replace(old, new)
 
+    # Disable X11 for Android
+    old = 'if(WITH_GHOST_SDL OR WITH_HEADLESS)\n\tset(WITH_X11           OFF)\n\tset(WITH_X11_XINPUT    OFF)\n\tset(WITH_X11_XF86VMODE OFF)\n\tset(WITH_X11_XFIXES    OFF)\n\tset(WITH_X11_ALPHA     OFF)\n\tset(WITH_GHOST_XDND    OFF)\n\tset(WITH_INPUT_IME     OFF)\nendif()'
+    new = '''if(WITH_GHOST_SDL OR WITH_HEADLESS OR WITH_ANDROID_MODULE)
+	set(WITH_X11           OFF)
+	set(WITH_X11_XINPUT    OFF)
+	set(WITH_X11_XF86VMODE OFF)
+	set(WITH_X11_XFIXES    OFF)
+	set(WITH_X11_ALPHA     OFF)
+	set(WITH_GHOST_XDND    OFF)
+	set(WITH_INPUT_IME     OFF)
+endif()'''
+    content = content.replace(old, new)
+
     # Add EGL/GLESv2 linkage for Android (needed by GL4ES)
     old = 'if(WITH_GL_PROFILE_COMPAT OR WITH_GL_PROFILE_CORE)\n\tlist(APPEND BLENDER_GL_LIBRARIES "${OPENGL_gl_LIBRARY}")'
     new = '''if(WITH_ANDROID_MODULE)

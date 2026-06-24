@@ -95,6 +95,8 @@ jobs:
             -DWITH_ANDROID_MODULE=ON \
             -DWITH_HEADLESS=OFF \
             -DWITH_OPENMP=OFF \
+            -DWITH_SYSTEM_GLES=OFF \
+            -DWITH_SYSTEM_GLEW=OFF \
             -DWITH_GHOST_DEBUG=OFF \
             -DWITH_IMAGE_JPEG=ON \
             -DWITH_IMAGE_PNG=ON \

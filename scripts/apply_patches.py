@@ -333,8 +333,25 @@ endif()'''
         fh.write(content)
     print("    Patched source/blender/editors/util/numinput.c")
 
-    # 10. Fix Eigen3 Functors.h for NDK r27 (std::binder2nd/1st removed from libc++)
-    print("[9] Patching Eigen3 Functors.h for NDK r27 compatibility...")
+    # 10. Fix backtrace() not available in Android/bionic
+    print("[10] Patching system.c for Android/bionic (no backtrace)...")
+    system_c = os.path.join(blender_dir, 'source', 'blender', 'blenlib', 'intern', 'system.c')
+    with open(system_c, 'r') as fh:
+        content = fh.read()
+    content = content.replace(
+        '/* for backtrace */\n#if defined(__linux__) || defined(__APPLE__)\n#  include <execinfo.h>',
+        '/* for backtrace */\n#if (defined(__linux__) && !defined(__ANDROID__)) || defined(__APPLE__)\n#  include <execinfo.h>'
+    )
+    content = content.replace(
+        '\t/* ------------- */\n\t/* Linux / Apple */\n#if defined(__linux__) || defined(__APPLE__)',
+        '\t/* ------------- */\n\t/* Linux / Apple (not Android - bionic lacks backtrace) */\n#if (defined(__linux__) && !defined(__ANDROID__)) || defined(__APPLE__)'
+    )
+    with open(system_c, 'w') as fh:
+        fh.write(content)
+    print("    Patched source/blender/blenlib/intern/system.c")
+
+    # 11. Fix Eigen3 Functors.h for NDK r27 (std::binder2nd/1st removed from libc++)
+    print("[11] Patching Eigen3 Functors.h for NDK r27 compatibility...")
     eigen_functors = os.path.join(blender_dir, 'extern', 'Eigen3', 'Eigen', 'src', 'Core', 'Functors.h')
     with open(eigen_functors, 'r') as fh:
         content = fh.read()

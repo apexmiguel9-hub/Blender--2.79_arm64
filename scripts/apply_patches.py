@@ -320,7 +320,20 @@ endif()'''
         fh.write(content)
     print("    Patched makesrna/intern/CMakeLists.txt")
 
-    # 9. Fix Eigen3 Functors.h for NDK r27 (std::binder2nd/1st removed from libc++)
+    # 9. Fix numinput.c: val undeclared when WITH_PYTHON is OFF
+    print("[9] Patching numinput.c for WITH_PYTHON=OFF...")
+    numinput_c = os.path.join(blender_dir, 'source', 'blender', 'editors', 'util', 'numinput.c')
+    with open(numinput_c, 'r') as fh:
+        content = fh.read()
+    content = content.replace(
+        '#else  /* Very unlikely, but does not harm... */\n\t\tn->val[idx] = (float)atof(n->str);\n\t\t(void)C;',
+        '#else  /* Very unlikely, but does not harm... */\n\t\tn->val[idx] = (float)atof(n->str);\n\t\t(void)C;\n\t\tdouble val;'
+    )
+    with open(numinput_c, 'w') as fh:
+        fh.write(content)
+    print("    Patched source/blender/editors/util/numinput.c")
+
+    # 10. Fix Eigen3 Functors.h for NDK r27 (std::binder2nd/1st removed from libc++)
     print("[9] Patching Eigen3 Functors.h for NDK r27 compatibility...")
     eigen_functors = os.path.join(blender_dir, 'extern', 'Eigen3', 'Eigen', 'src', 'Core', 'Functors.h')
     with open(eigen_functors, 'r') as fh:

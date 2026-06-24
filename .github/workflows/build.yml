@@ -102,6 +102,8 @@ jobs:
             -DWITH_OPENCOLLADA=ON \
             -DWITH_FFTW3=ON \
             -DWITH_OPENIMAGEDENOISE=ON \
+            -DWITH_COMPOSITOR_CPU=OFF \
+            -DWITH_CODEC_FFMPEG=OFF \
             -DWITH_XR_OPENXR=OFF \
             -DWITH_CPU_SSE=OFF \
             -DWITH_CPU_AVX=OFF \

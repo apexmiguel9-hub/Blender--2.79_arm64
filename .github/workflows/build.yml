@@ -1,4 +1,4 @@
-name: Build Blender 2.79b Android .so
+name: Build Blender 3.6.22 for Android ARM64
 
 on:
   push:
@@ -14,21 +14,21 @@ jobs:
     name: Build libblender.so for ARM64
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout this repo (patches, wrappers, scripts)
+      - name: Checkout this repo (patches, scripts)
         uses: actions/checkout@v4
 
-      - name: Checkout Blender 2.79b
+      - name: Checkout Blender 3.6.22 (epai port)
         uses: actions/checkout@v4
         with:
-          repository: blender/blender
-          ref: v2.79b
-          path: blender279
+          repository: dshawshank/Blender-android_arm64
+          ref: blender-v3.6-release
+          path: blender36
 
-      - name: Checkout GL4ES
+      - name: Checkout prebuilt Android libraries
         uses: actions/checkout@v4
         with:
-          repository: ptitSeb/gl4es
-          path: gl4es
+          repository: dshawshank/lib-android_arm64
+          path: lib-android_arm64
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
@@ -41,104 +41,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build pkg-config bison flex gettext gcc g++ qemu-user-static binfmt-support
 
-      - name: Build Android dependencies (zlib, jpeg, png)
+      - name: Patch hardcoded library paths in cmake modules
         run: |
-          export PREFIX=${{ github.workspace }}/android-libs
-          export TOOLCHAIN=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
-          export COMMON_CMAKE="-G Ninja -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=${{ env.ANDROID_API }} -DCMAKE_INSTALL_PREFIX=$PREFIX"
-          mkdir -p $PREFIX
+          LIBDIR=${{ github.workspace }}/lib-android_arm64
+          # Replace Windows hardcoded paths in Find*.cmake modules
+          find blender36/build_files/cmake/Modules -name "Find*.cmake" -exec sed -i "s|D:/FreeProjects/Blender/Blender/lib-android_arm64|$LIBDIR|g" {} +
+          # Also patch the main CMakeLists.txt
+          sed -i "s|D:/FreeProjects/Blender/Blender/lib-android_arm64|$LIBDIR|g" blender36/CMakeLists.txt
+          echo "=== Patched paths ==="
 
-          # Build zlib (static only - needed for datatoc_icon static linking)
-          git clone --depth 1 --branch v1.3.1 https://github.com/madler/zlib /tmp/zlib
-          cmake -S /tmp/zlib -B /tmp/zlib/build $COMMON_CMAKE -DBUILD_SHARED_LIBS=OFF
-          ninja -C /tmp/zlib/build install
-
-          # Build libjpeg-turbo
-          git clone --depth 1 --branch 3.0.1 https://github.com/libjpeg-turbo/libjpeg-turbo /tmp/jpeg
-          cmake -S /tmp/jpeg -B /tmp/jpeg/build $COMMON_CMAKE -DENABLE_SHARED=OFF -DWITH_TURBOJPEG=OFF
-          ninja -C /tmp/jpeg/build install
-
-          # Build libpng (depends on zlib)
-          git clone --depth 1 --branch v1.6.43 https://github.com/glennrp/libpng /tmp/png
-          cmake -S /tmp/png -B /tmp/png/build $COMMON_CMAKE \
-            -DPNG_SHARED=OFF -DPNG_STATIC=ON \
-            -DZLIB_LIBRARY=$PREFIX/lib/libz.a -DZLIB_INCLUDE_DIR=$PREFIX/include
-          ninja -C /tmp/png/build install
-
-          echo "=== Android libraries ==="
-          find $PREFIX -type f | sort
-
-      - name: Build freetype for Android
-        run: |
-          export PREFIX=${{ github.workspace }}/android-libs
-          export TOOLCHAIN=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
-          export API=${{ env.ANDROID_API }}
-          git clone --depth 1 --branch VER-2-13-3 https://github.com/freetype/freetype /tmp/freetype
-          cmake -S /tmp/freetype -B /tmp/freetype/build \
-            -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=$API \
-            -DCMAKE_INSTALL_PREFIX=$PREFIX \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-            -DFT_WITH_ZLIB=ON \
-            -DZLIB_LIBRARY=$PREFIX/lib/libz.a \
-            -DZLIB_INCLUDE_DIR=$PREFIX/include \
-            -DFT_WITH_BZIP2=OFF \
-            -DFT_WITH_PNG=ON \
-            -DPNG_LIBRARY=$PREFIX/lib/libpng.a \
-            -DPNG_PNG_INCLUDE_DIR=$PREFIX/include \
-            -DBUILD_SHARED_LIBS=OFF
-          ninja -C /tmp/freetype/build install
-          echo "=== Freetype output ==="
-          find $PREFIX -name "*freetype*" -o -name "*freetype*" | sort
-
-      - name: Apply Android patches to Blender
-        run: |
-          python3 ${{ github.workspace }}/scripts/apply_patches.py \
-            ${{ github.workspace }}/blender279 \
-            ${{ github.workspace }}
-
-      - name: Build GL4ES static for Android
-        run: |
-          cd gl4es
-          mkdir -p build && cd build
-          cmake -G Ninja .. \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=${{ env.ANDROID_API }} \
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/gl4es-install \
-            -DSTATICLIB=ON \
-            -DDEFAULT_ES=2 \
-            -DNO_INIT_CONSTRUCTOR=ON
-          ninja -j$(nproc)
-          echo "=== GL4ES output ==="
-          mkdir -p ${{ github.workspace }}/gl4es-install/lib
-          mkdir -p ${{ github.workspace }}/gl4es-install/include
-          cp ../lib/libGL.a ${{ github.workspace }}/gl4es-install/lib/
-          cp -r ../include/* ${{ github.workspace }}/gl4es-install/include/
-          find ${{ github.workspace }}/gl4es-install -type f
-
-      - name: Build GLU stub for Android
-        run: |
-          export PREFIX=${{ github.workspace }}/android-libs
-          export API=${{ env.ANDROID_API }}
-          export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android$API-clang"
-          mkdir -p /tmp/glustub
-          cp ${{ github.workspace }}/android/glu_stub/glu_stub.c /tmp/glustub/
-          $CC -fPIC -c -o /tmp/glustub/glu_stub.o \
-            -I${{ github.workspace }}/gl4es-install/include \
-            /tmp/glustub/glu_stub.c
-          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs \
-            $PREFIX/lib/libglu_stub.a /tmp/glustub/glu_stub.o
-          echo "=== GLU stub output ==="
-          ls -la $PREFIX/lib/libglu_stub.a
-
-      - name: Configure Blender for Android
+      - name: Configure Blender 3.6 for Android
         continue-on-error: true
         id: configure
         run: |
-          mkdir -p blender279/build && cd blender279/build
+          mkdir -p blender36/build && cd blender36/build
 
           # Host tools (datatoc, makesdna, makesrna) are linked statically,
           # so QEMU user-mode (via binfmt_misc) can run them without the
@@ -150,45 +66,51 @@ jobs:
             -DWITH_BLENDER=ON \
             -DWITH_PLAYER=OFF \
             -DWITH_GAMEENGINE=OFF \
-            -DWITH_CYCLES=OFF \
-            -DWITH_COMPOSITOR=OFF \
-            -DWITH_FREESTYLE=OFF \
-            -DWITH_OPENCOLORIO=OFF \
-            -DWITH_OPENVDB=OFF \
-            -DWITH_AUDASPACE=OFF \
-            -DWITH_CODEC_FFMPEG=OFF \
-            -DWITH_CODEC_SNDFILE=OFF \
-            -DWITH_OPENAL=OFF \
-            -DWITH_SDL=OFF \
-            -DWITH_PYTHON=OFF \
-            -DWITH_OPENIMAGEIO=OFF \
-            -DWITH_BOOST=OFF \
-            -DWITH_LIBMV=OFF \
-            -DWITH_IK_ITASC=OFF \
-            -DWITH_INTERNATIONAL=OFF \
+            -DWITH_CYCLES=ON \
+            -DWITH_COMPOSITOR=ON \
+            -DWITH_FREESTYLE=ON \
+            -DWITH_OPENCOLORIO=ON \
+            -DWITH_OPENVDB=ON \
+            -DWITH_AUDASPACE=ON \
+            -DWITH_CODEC_FFMPEG=ON \
+            -DWITH_OPENAL=ON \
+            -DWITH_SDL=ON \
+            -DWITH_PYTHON=ON \
+            -DWITH_OPENIMAGEIO=ON \
+            -DWITH_BOOST=ON \
+            -DWITH_LIBMV=ON \
+            -DWITH_INTERNATIONAL=ON \
             -DWITH_INSTALL_PORTABLE=ON \
-            -DWITH_ANDROID_MODULE=ON \
             -DWITH_HEADLESS=OFF \
-            -DWITH_OPENMP=OFF \
-            -DWITH_SYSTEM_GLES=OFF \
-            -DWITH_SYSTEM_GLEW=OFF \
-            -DWITH_GHOST_DEBUG=OFF \
-            -DWITH_IMAGE_TIFF=OFF \
-            -DWITH_IMAGE_OPENEXR=OFF \
-            -DGL4ES_LIBRARY=${{ github.workspace }}/gl4es-install/lib/libGL.a \
-            -DGL4ES_INCLUDE_DIR=${{ github.workspace }}/gl4es-install/include \
-            -DZLIB_LIBRARY=${{ github.workspace }}/android-libs/lib/libz.a \
-            -DPNG_LIBRARY=${{ github.workspace }}/android-libs/lib/libpng.a \
-            -DJPEG_LIBRARY=${{ github.workspace }}/android-libs/lib/libjpeg.a \
-            -DGLU_STUB_LIBRARY=${{ github.workspace }}/android-libs/lib/libglu_stub.a \
-            -DFREETYPE_LIBRARY=${{ github.workspace }}/android-libs/lib/libfreetype.a \
-            -DFREETYPE_INCLUDE_DIRS=${{ github.workspace }}/android-libs/include/freetype2 \
-            -DCMAKE_C_FLAGS="-fPIC -static-libgcc -Os -DANDROID" \
-            -DCMAKE_CXX_FLAGS="-fPIC -static-libstdc++ -Os -DANDROID" \
+            -DWITH_OPENMP=ON \
+            -DWITH_GHOST_WAYLAND=ON \
+            -DWITH_IMAGE_TIFF=ON \
+            -DWITH_IMAGE_OPENEXR=ON \
+            -DWITH_ALEMBIC=ON \
+            -DWITH_USD=ON \
+            -DWITH_INPUT_NDOF=OFF \
+            -DWITH_X11=OFF \
+            -DWITH_GHOST_X11=OFF \
+            -DWITH_GHOST_WAYLAND_DYNLOAD=OFF \
+            -DWITH_GHOST_WAYLAND_LIBDECOR=OFF \
+            -DWITH_GHOST_WAYLAND_DBUS=OFF \
+            -DWITH_MEM_JEMALLOC=OFF \
+            -DWITH_TBB=ON \
+            -DWITH_GMP=ON \
+            -DWITH_OPENSUBDIV=ON \
+            -DWITH_OPENCOLLADA=ON \
+            -DWITH_FFTW3=ON \
+            -DWITH_OPENIMAGEDENOISE=ON \
+            -DWITH_XR_OPENXR=OFF \
+            -DWITH_CPU_SSE=OFF \
+            -DWITH_CPU_AVX=OFF \
+            -DWITH_CPU_AVX2=OFF \
+            -DCMAKE_C_FLAGS="-fPIC -Os -DANDROID" \
+            -DCMAKE_CXX_FLAGS="-fPIC -Os -DANDROID" \
             -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_FIND_ROOT_PATH="${{ github.workspace }}/gl4es-install;${{ github.workspace }}/android-libs" \
+            -DCMAKE_FIND_ROOT_PATH="${{ github.workspace }}/lib-android_arm64" \
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
@@ -199,15 +121,15 @@ jobs:
         if: steps.configure.outcome == 'failure'
         run: |
           echo "=== CMake Configuration Failed ==="
-          cat blender279/build/cmake_config.log
+          cat blender36/build/cmake_config.log
           echo "=== CMakeError.log ==="
-          cat blender279/build/CMakeFiles/CMakeError.log 2>/dev/null || true
+          cat blender36/build/CMakeFiles/CMakeError.log 2>/dev/null || true
 
       - name: Build Blender
         if: steps.configure.outcome == 'success'
         continue-on-error: true
         run: |
-          cd blender279/build
+          cd blender36/build
           ninja -j$(nproc) 2>&1 | tee build.log
 
       - name: Collect outputs
@@ -215,18 +137,21 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}/output
           echo "=== Searching for built files ==="
-          find ${{ github.workspace }}/blender279/build -name "*.so" -o -name "*.a" -o -name "blender" 2>/dev/null | head -30
-          find ${{ github.workspace }}/blender279/build -name "libblender*" 2>/dev/null | head -10
-          # Copy the .so if built
-          cp ${{ github.workspace }}/blender279/build/lib/libblender.so ${{ github.workspace }}/output/ 2>/dev/null || true
-          find ${{ github.workspace }}/blender279/build -name "libblender*" -exec cp {} ${{ github.workspace }}/output/ \; 2>/dev/null || true
+          find ${{ github.workspace }}/blender36/build -name "*.so" -o -name "*.a" 2>/dev/null | head -50
+          find ${{ github.workspace }}/blender36/build -name "libblender*" 2>/dev/null | head -10
+          # Copy all .a files (Blender modules) for APK linking
+          find ${{ github.workspace }}/blender36/build -name "libbf_*.a" -exec cp {} ${{ github.workspace }}/output/ \; 2>/dev/null || true
+          find ${{ github.workspace }}/blender36/build -name "libextern_*.a" -exec cp {} ${{ github.workspace }}/output/ \; 2>/dev/null || true
+          find ${{ github.workspace }}/blender36/build -name "libcycles_*.a" -exec cp {} ${{ github.workspace }}/output/ \; 2>/dev/null || true
+          # Copy the final .so if built
+          cp ${{ github.workspace }}/blender36/build/lib/libblender.so ${{ github.workspace }}/output/ 2>/dev/null || true
           # Copy logs
-          cp blender279/build/cmake_config.log ${{ github.workspace }}/output/ 2>/dev/null || true
-          cp blender279/build/build.log ${{ github.workspace }}/output/ 2>/dev/null || true
+          cp blender36/build/cmake_config.log ${{ github.workspace }}/output/ 2>/dev/null || true
+          cp blender36/build/build.log ${{ github.workspace }}/output/ 2>/dev/null || true
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: blender279-build-output
+          name: blender36-build-output
           path: ${{ github.workspace }}/output/*

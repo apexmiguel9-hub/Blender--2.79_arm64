@@ -153,29 +153,39 @@ jobs:
           echo "=== CMakeError.log ==="
           cat blender36/build/CMakeFiles/CMakeError.log 2>/dev/null || true
 
-      - name: Patch build rules for host tools
+      - name: Pre-place native host tools and patch build rules
         if: steps.configure.outcome == 'success'
         run: |
-          # Replace build rules for datatoc/datatoc_icon with native binary copies
-          # so ninja doesn't try to run ARM64 versions under QEMU.
+          mkdir -p blender36/build/bin
+          cp /tmp/host_tools/datatoc blender36/build/bin/datatoc
+          cp /tmp/host_tools/datatoc_icon blender36/build/bin/datatoc_icon
           cd blender36/build
-          python3 << 'PYEOF'
-import pathlib
-ninja = pathlib.Path('build.ninja').read_text()
-# Replace the link rule for bin/datatoc binary with a copy command
-import re
-# Find the build rule for bin/datatoc
-ninja = re.sub(
-    r'build bin/datatoc: CXX_EXECUTABLE_LINKER.*?(?=\n\n|\Z)',
-    r'build bin/datatoc: CUSTOM_COMMAND\n  command = cp /tmp/host_tools/datatoc $out\n  description = Copy native datatoc',
-    ninja, count=1, flags=re.DOTALL)
-ninja = re.sub(
-    r'build bin/datatoc_icon: CXX_EXECUTABLE_LINKER.*?(?=\n\n|\Z)',
-    r'build bin/datatoc_icon: CUSTOM_COMMAND\n  command = cp /tmp/host_tools/datatoc_icon $out\n  description = Copy native datatoc_icon',
-    ninja, count=1, flags=re.DOTALL)
-pathlib.Path('build.ninja').write_text(ninja)
-print("build.ninja patched for datatoc/datatoc_icon")
-PYEOF
+          cat > /tmp/patch_ninja.py << 'PYEOF'
+          import re
+          with open('build.ninja') as f:
+              t = f.read()
+
+          def replace_build_rule(name, bin_path):
+              global t
+              pattern = r'^build bin/' + re.escape(name) + r': .*?^(?=\S|\Z)'
+              replacement = (
+                  'build bin/' + name + ': CUSTOM_COMMAND\n'
+                  '  command = cp ' + bin_path + ' $out\n'
+                  '  description = Copy native ' + name + '\n'
+                  '  restat = 1\n'
+              )
+              t = re.sub(pattern, replacement, t, count=1, flags=re.MULTILINE | re.DOTALL)
+
+          replace_build_rule('datatoc', '/tmp/host_tools/datatoc')
+          replace_build_rule('datatoc_icon', '/tmp/host_tools/datatoc_icon')
+
+          with open('build.ninja', 'w') as f:
+              f.write(t)
+          print('build.ninja patched')
+          PYEOF
+          python3 /tmp/patch_ninja.py
+
+
 
       - name: Build Blender
         if: steps.configure.outcome == 'success'

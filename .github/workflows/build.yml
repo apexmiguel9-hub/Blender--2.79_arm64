@@ -121,6 +121,7 @@ jobs:
             -DWITH_OPENAL=OFF \
             -DWITH_SDL=OFF \
             -DWITH_PYTHON=OFF \
+            -DWITH_BOOST=OFF \
             -DWITH_IK_ITASC=OFF \
             -DWITH_INTERNATIONAL=OFF \
             -DWITH_INSTALL_PORTABLE=ON \

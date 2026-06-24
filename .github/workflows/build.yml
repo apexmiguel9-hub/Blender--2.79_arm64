@@ -49,10 +49,12 @@ jobs:
           sed -i "s|D:/FreeProjects/Blender/Blender/lib-android_arm64|$LIBDIR|g" blender36/CMakeLists.txt
           # Fix Python include dir (original has include/include/ but real path is include/Include/)
           sed -i 's|cpython/include/include/|cpython/include/Include/|g' blender36/build_files/cmake/Modules/FindPythonLibsUnix.cmake
+          # pnglibconf.h is a generated file; copy from prebuilt
+          cp "$LIBDIR/Png/include/libpng-1.6.40/scripts/pnglibconf.h.prebuilt" \
+             "$LIBDIR/Png/include/libpng-1.6.40/pnglibconf.h"
           echo "=== Patched paths ==="
 
       - name: Configure Blender 3.6 for Android
-        continue-on-error: true
         id: configure
         run: |
           mkdir -p blender36/build && cd blender36/build
@@ -130,7 +132,6 @@ jobs:
 
       - name: Build Blender
         if: steps.configure.outcome == 'success'
-        continue-on-error: true
         run: |
           cd blender36/build
           ninja -j$(nproc) 2>&1 | tee build.log

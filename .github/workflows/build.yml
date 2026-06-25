@@ -135,8 +135,8 @@ jobs:
             -DDATATOC_ICON_EXECUTABLE="/tmp/host_tools/datatoc_icon" \
             -DCMAKE_C_FLAGS="-fPIC -Os -DANDROID" \
             -DCMAKE_CXX_FLAGS="-fPIC -Os -DANDROID -D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES -Wno-enum-constexpr-conversion -Wno-error=enum-constexpr-conversion" \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096 -Wl,--allow-shlib-undefined" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096 -Wl,--allow-shlib-undefined" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_FIND_ROOT_PATH="${{ github.workspace }}/lib-android_arm64" \
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
@@ -372,7 +372,20 @@ jobs:
                          '  RESTAT = 1\n')
                   t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE)
               else:
-                  print("NO MATCH for icon rule: " + icon)
+                   print("NO MATCH for icon rule: " + icon)
+
+          # Skip msgfmt link (prebuilt TBB/GMP .so reference glibc symbols not
+          # in Android Bionic: fgets_unlocked@LIBC_P, nl_langinfo@LIBC_O).
+          # msgfmt is only needed for .mo translation files (not built for
+          # Android), so a no-op rule is safe.
+          pat = r'^build bin/msgfmt: CXX_EXECUTABLE_LINKER__msgfmt_Release [^\n]*(\n\s+[^\n]*)*'
+          rep = 'build bin/msgfmt: CUSTOM_COMMAND\n  COMMAND = :\n  RESTAT = 1\n'
+          m = re.search(pat, t, re.MULTILINE)
+          if m:
+              print("Replaced build rule for bin/msgfmt (no-op to skip glibc symbols)")
+              t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE)
+          else:
+              print("WARNING: no build rule found for bin/msgfmt")
 
           with open('build.ninja', 'w') as f:
               f.write(t)

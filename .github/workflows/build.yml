@@ -324,14 +324,18 @@ jobs:
       - name: Build Blender
         if: steps.configure.outcome == 'success'
         run: |
+          set -x
+          pwd
+          ls -la blender36/build/ 2>&1 || echo "build dir missing!"
           cd blender36/build
-          ninja -j$(nproc) 2>&1 | tee build.log || true
+          ninja -j$(nproc) 2>&1 | tee build.log; rc=$?
+          echo "=== NINJA EXIT CODE: $rc ==="
           echo "=== BUILD LOG (last 100 lines) ==="
-          tail -100 build.log
+          tail -200 build.log 2>/dev/null || echo "(no build.log)"
           echo "=== FAILURES ==="
-          grep -i "FAILED\|error:\|build stopped" build.log || echo "(none found)"
-          if grep -q "FAILED\|error:\|build stopped" build.log; then
-            echo "BUILD FAILED - see log above"
+          grep -i "FAILED\|error:\|build stopped" build.log 2>/dev/null || echo "(none found)"
+          if [ "$rc" -ne 0 ]; then
+            echo "BUILD FAILED - ninja exit code $rc"
             exit 1
           fi
           echo "BUILD COMPLETED SUCCESSFULLY"

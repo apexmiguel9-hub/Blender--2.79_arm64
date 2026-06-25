@@ -134,7 +134,7 @@ jobs:
             -DDATATOC_EXECUTABLE="/tmp/host_tools/datatoc" \
             -DDATATOC_ICON_EXECUTABLE="/tmp/host_tools/datatoc_icon" \
             -DCMAKE_C_FLAGS="-fPIC -Os -DANDROID" \
-            -DCMAKE_CXX_FLAGS="-fPIC -Os -DANDROID -D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES -Wno-enum-constexpr-conversion" \
+            -DCMAKE_CXX_FLAGS="-fPIC -Os -DANDROID -D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES -Wno-enum-constexpr-conversion -Wno-error=enum-constexpr-conversion" \
             -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-z,max-page-size=4096" \
             -DCMAKE_BUILD_TYPE=Release \
@@ -331,19 +331,6 @@ jobs:
                   t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE | re.DOTALL)
               else:
                   print("NO MATCH for icon rule: " + icon)
-
-          # Safety net: ensure all CXX FLAGS include -Wno-enum-constexpr-conversion
-          # (cmake -DCMAKE_CXX_FLAGS may not propagate to all build rules)
-          counter = [0]
-          def add_flag(m):
-              g = m.group()
-              if '-Wno-enum-constexpr-conversion' not in g:
-                  counter[0] += 1
-                  return g.rstrip() + ' -Wno-enum-constexpr-conversion\n'
-              return g
-          t = re.sub(r'^FLAGS = .*$', add_flag, t, flags=re.MULTILINE)
-          t = re.sub(r'(?m)^  FLAGS = .*$', add_flag, t)
-          print(f"Patching build.ninja FLAGS: added -Wno-enum-constexpr-conversion to {counter[0]} rule(s)")
 
           with open('build.ninja', 'w') as f:
               f.write(t)

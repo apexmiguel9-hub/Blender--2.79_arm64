@@ -168,17 +168,19 @@ jobs:
           mkdir -p /tmp/host_tools
           DNA_GEN_DIR="source/blender/makesdna/intern"
           if [ -f "${DNA_GEN_DIR}/dna_includes_as_strings.h" ]; then
-            echo "=== Compiling makesdna natively ==="
-            g++ -DNDEBUG -DWITH_DNA_GHASH \
-              -o /tmp/host_tools/makesdna \
-              -I "$PWD/../source/blender/makesdna" \
-              -I "$PWD/../source/blender/makesdna/intern" \
-              -I "$PWD/../source/blender/blenlib" \
-              -I "$PWD/../source/blender/imbuf" \
-              -I "$PWD/../intern/atomic" \
-              -I "$PWD/../intern/guardedalloc" \
-              -I "$PWD/../intern/guardedalloc/intern" \
-              -I "$PWD/${DNA_GEN_DIR}" \
+            echo "=== Compiling makesdna natively (C with gcc, C++ with g++) ==="
+            INC_FLAGS="-DNDEBUG -DWITH_DNA_GHASH"
+            INC_FLAGS="$INC_FLAGS -I $PWD/../source/blender/makesdna"
+            INC_FLAGS="$INC_FLAGS -I $PWD/../source/blender/makesdna/intern"
+            INC_FLAGS="$INC_FLAGS -I $PWD/../source/blender/blenlib"
+            INC_FLAGS="$INC_FLAGS -I $PWD/../source/blender/imbuf"
+            INC_FLAGS="$INC_FLAGS -I $PWD/../intern/atomic"
+            INC_FLAGS="$INC_FLAGS -I $PWD/../intern/guardedalloc"
+            INC_FLAGS="$INC_FLAGS -I $PWD/../intern/guardedalloc/intern"
+            INC_FLAGS="$INC_FLAGS -I $PWD/${DNA_GEN_DIR}"
+            OBJDIR=$(mktemp -d)
+            # C sources (gcc)
+            for src in \
               "$PWD/../source/blender/makesdna/intern/makesdna.c" \
               "$PWD/../source/blender/makesdna/intern/dna_utils.c" \
               "$PWD/../source/blender/blenlib/intern/BLI_assert.c" \
@@ -189,10 +191,21 @@ jobs:
               "$PWD/../source/blender/blenlib/intern/hash_mm2a.c" \
               "$PWD/../intern/guardedalloc/intern/mallocn.c" \
               "$PWD/../intern/guardedalloc/intern/mallocn_guarded_impl.c" \
-              "$PWD/../intern/guardedalloc/intern/mallocn_lockfree_impl.c" \
+              "$PWD/../intern/guardedalloc/intern/mallocn_lockfree_impl.c"; do
+              bn=$(basename "$src" .c)
+              gcc -c $INC_FLAGS -o "$OBJDIR/${bn}.o" "$src" 2>&1
+            done
+            # C++ sources (g++ - DNA C++ headers are skipped when __cplusplus not
+            # defined, but guardedalloc .cc files need C++ stdlib)
+            for src in \
               "$PWD/../intern/guardedalloc/intern/memory_usage.cc" \
-              "$PWD/../intern/guardedalloc/intern/leak_detector.cc" \
-              -lm -lpthread 2>&1
+              "$PWD/../intern/guardedalloc/intern/leak_detector.cc"; do
+              bn=$(basename "$src" .cc)
+              g++ -c $INC_FLAGS -o "$OBJDIR/${bn}.o" "$src" 2>&1
+            done
+            # Link with g++
+            g++ -o /tmp/host_tools/makesdna "$OBJDIR"/*.o -lm -lpthread 2>&1
+            rm -rf "$OBJDIR"
             echo "=== Running makesdna to generate dna.c ==="
             /tmp/host_tools/makesdna \
               "${DNA_GEN_DIR}/dna.c" \

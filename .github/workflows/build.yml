@@ -281,19 +281,21 @@ jobs:
 
           # Replace ARM64 cross-compiled datatoc rules with CUSTOM_COMMAND
           # that copies the native x86_64 host binary (avoids QEMU binfmt issues).
+          # No re.DOTALL — .*? with DOTALL *and* a \nbuild lookahead is safer but
+          # still risks crossing rules; use single-line matching instead.
           for name, host_path in (('datatoc', '/tmp/host_tools/datatoc'),
                                   ('datatoc_icon', '/tmp/host_tools/datatoc_icon')):
               pat = (r'^build bin/' + re.escape(name) +
                      r': C_EXECUTABLE_LINKER__' +
                      re.escape(name) +
-                     r'_Release .*?(?=\n\n|\nbuild |\Z)')
+                     r'_Release [^\n]*(\n\s+[^\n]*)*')
               rep = ('build bin/' + name + ': CUSTOM_COMMAND\n'
                      '  COMMAND = cp ' + host_path + ' bin/' + name + '\n'
                      '  RESTAT = 1\n')
-              m = re.search(pat, t, re.MULTILINE | re.DOTALL)
+              m = re.search(pat, t, re.MULTILINE)
               if m:
                   print("Replaced build rule for bin/" + name)
-                  t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE | re.DOTALL)
+                  t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE)
               else:
                   print("WARNING: no build rule found for bin/" + name)
 
@@ -352,13 +354,15 @@ jobs:
               print(icon_set + ": " + str(cw) + "x" + str(ch) + " -> icons pre-generated")
 
           # Patch icon sprite build rules in build.ninja to no-op (already pre-generated).
+          # IMPORTANT: do NOT use re.DOTALL here — it causes .* to match across
+          # build rule boundaries, silently deleting hundreds of build rules.
           for icon in ('blender_icons16', 'blender_icons32'):
-              pat = (r'^build\s+(.*\$\s*\n)*.*release/datafiles/' +
+              pat = (r'^build\s+.*release/datafiles/' +
                      re.escape(icon) +
-                     r'\.png(.*\$\s*\n)*.*release/datafiles/' +
+                     r'\.png.*release/datafiles/' +
                      re.escape(icon) +
-                     r'\.png\.c:.*?^(?=\S|\Z)')
-              m = re.search(pat, t, re.MULTILINE | re.DOTALL)
+                     r'\.png\.c:.*(\n\s+[^\n]*)*')
+              m = re.search(pat, t, re.MULTILINE)
               if m:
                   print("Patched icon rule for " + icon)
                   rep = ('build release/datafiles/' + icon +
@@ -366,7 +370,7 @@ jobs:
                          '.png.c: CUSTOM_COMMAND\n'
                          '  COMMAND = :\n'
                          '  RESTAT = 1\n')
-                  t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE | re.DOTALL)
+                  t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE)
               else:
                   print("NO MATCH for icon rule: " + icon)
 

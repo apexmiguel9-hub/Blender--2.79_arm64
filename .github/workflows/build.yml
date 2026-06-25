@@ -184,6 +184,7 @@ jobs:
             for src in \
               "$PWD/../source/blender/makesdna/intern/makesdna.c" \
               "$PWD/../source/blender/makesdna/intern/dna_utils.c" \
+            "$PWD/../source/blender/makesdna/intern/dna_genfile.c" \
               "$PWD/../source/blender/blenlib/intern/BLI_assert.c" \
               "$PWD/../source/blender/blenlib/intern/BLI_ghash.c" \
               "$PWD/../source/blender/blenlib/intern/BLI_ghash_utils.c" \

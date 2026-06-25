@@ -248,18 +248,28 @@ jobs:
 
           print(f"Found {len(rna_gen_files)} generated RNA files needing stubs")
 
+          # RNA function names that differ from the gen-file-name pattern
+          override_func = {
+              "collection": "RNA_def_collections",
+              "dynamicpaint": "RNA_def_dynamic_paint",
+              "gpencil_legacy": "RNA_def_gpencil",
+              "layer": "RNA_def_view_layer",
+              "gpencil_legacy_modifier": "RNA_def_greasepencil_modifier",
+              "curveprofile": "RNA_def_profile",
+              "timeline": "RNA_def_timeline_marker",
+          }
+
           for path, name in rna_gen_files:
-              # path is absolute like /home/.../build/source/.../rna_ID_gen.c
-              # Create the file (even if it exists, we'll overwrite with stub)
               os.makedirs(os.path.dirname(path), exist_ok=True)
               if name == "prototypes_gen":
                   with open(path, 'w') as f:
                       f.write('/* stub */\n')
               else:
+                  func = override_func.get(name, f"RNA_def_{name}")
                   with open(path, 'w') as f:
                       f.write('#include "RNA_define.h"\n')
                       f.write('#include "rna_internal.h"\n')
-                      f.write(f'void RNA_def_{name}(struct BlenderRNA *brna) {{}}\n')
+                      f.write(f'void {func}(struct BlenderRNA *brna) {{}}\n')
               print(f"  Created stub: {os.path.basename(path)}")
 
           PYEOF2

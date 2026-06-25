@@ -294,6 +294,13 @@ jobs:
             RNA_DEF_COUNT=$((RNA_DEF_COUNT + 1))
           done
           echo "Compiled $RNA_DEF_COUNT RNA def files"
+          # Compile rna_*_api.c files
+          RNA_APIS=$(find "$RNA_INTERN" -maxdepth 1 -name 'rna_*_api.c')
+          for src in $RNA_APIS; do
+            bn=$(basename "$src" .c)
+            echo "  gcc ${bn}.c"
+            gcc -w -c $INC_FLAGS -o "$RNA_OBJDIR/${bn}.o" "$src" 2>&1
+          done
           # Link with g++
           g++ -o /tmp/host_tools/makesrna "$RNA_OBJDIR"/*.o -lm -lpthread 2>&1
           rm -rf "$RNA_OBJDIR"

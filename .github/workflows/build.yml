@@ -168,11 +168,12 @@ jobs:
           def replace_build_rule(name, bin_path):
               global t
               pattern = r'^build bin/' + re.escape(name) + r': .*?^(?=\S|\Z)'
+              # Use full output path instead of $out (ninja doesn't expand it)
               replacement = (
                   'build bin/' + name + ': CUSTOM_COMMAND\n'
-                  '  command = cp ' + bin_path + ' $out\n'
-                  '  description = Copy native ' + name + '\n'
-                  '  restat = 1\n'
+                  '  COMMAND = cp ' + bin_path + ' bin/' + name + '\n'
+                  '  DESC = Copy native ' + name + '\n'
+                  '  RESTAT = 1\n'
               )
               t = re.sub(pattern, replacement, t, count=1, flags=re.MULTILINE | re.DOTALL)
 

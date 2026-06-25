@@ -259,6 +259,79 @@ jobs:
               else:
                   print("WARNING: no build rule found for bin/" + name)
 
+          # Pre-generate icon PNGs using Python (datatoc_icon host binary segfaults).
+          os.makedirs('release/datafiles', exist_ok=True)
+          for icon_set in ('blender_icons16', 'blender_icons32'):
+              src_dir = "../release/datafiles/" + icon_set
+              dst_png = "release/datafiles/" + icon_set + ".png"
+              dst_c = dst_png + ".c"
+              if not os.path.isdir(src_dir):
+                  print("SKIP " + icon_set + ": no source dir " + src_dir)
+                  continue
+              # Generate the PNG from .dat files using pure Python (PIL-free).
+              import struct, zlib
+              cw = ch = 0
+              canvas = None
+              for fname in sorted(os.listdir(src_dir)):
+                  if not fname.endswith('.dat'):
+                      continue
+                  with open(os.path.join(src_dir, fname), 'rb') as f:
+                      data = f.read()
+                  if len(data) < 24:
+                      continue
+                  iw, ih, ox, oy, cwn, chn = struct.unpack_from('<IIIIII', data, 0)
+                  px = data[24:]
+                  if len(px) < iw * ih * 4:
+                      continue
+                  if canvas is None:
+                      cw, ch = cwn, chn
+                      canvas = bytearray(cw * ch * 4)
+                  for y in range(ih):
+                      for x in range(iw):
+                          si = (y * iw + x) * 4
+                          dx = ox + x; dy = oy + y
+                          if dx < cw and dy < ch:
+                              di = (dy * cw + dx) * 4
+                              canvas[di:di+4] = px[si:si+4]
+              if canvas is None:
+                  print("WARN: " + icon_set + ": no icons generated")
+                  continue
+              # Write PNG
+              def png_chunk(ctype, cdata):
+                  c = ctype + cdata
+                  return struct.pack('>I', len(cdata)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+              with open(dst_png, 'wb') as f:
+                  f.write(b'\x89PNG\r\n\x1a\n')
+                  f.write(png_chunk(b'IHDR', struct.pack('>IIBBBBB', cw, ch, 8, 6, 0, 0, 0)))
+                  raw = b''
+                  for y in range(ch):
+                      raw += b'\x00' + bytes(canvas[y*cw*4:(y+1)*cw*4])
+                  f.write(png_chunk(b'IDAT', zlib.compress(raw)))
+                  f.write(png_chunk(b'IEND', b''))
+              # Generate .c from PNG using the native datatoc
+              import subprocess
+              subprocess.run(['/tmp/host_tools/datatoc', dst_png, dst_c], check=True)
+              print(icon_set + ": " + str(cw) + "x" + str(ch) + " -> icons pre-generated")
+
+          # Patch icon sprite build rules in build.ninja to no-op (already pre-generated).
+          for icon in ('blender_icons16', 'blender_icons32'):
+              pat = (r'^build\s+(.*\$\s*\n)*.*release/datafiles/' +
+                     re.escape(icon) +
+                     r'\.png(.*\$\s*\n)*.*release/datafiles/' +
+                     re.escape(icon) +
+                     r'\.png\.c:.*?^(?=\S|\Z)')
+              m = re.search(pat, t, re.MULTILINE | re.DOTALL)
+              if m:
+                  print("Patched icon rule for " + icon)
+                  rep = ('build release/datafiles/' + icon +
+                         '.png release/datafiles/' + icon +
+                         '.png.c: CUSTOM_COMMAND\n'
+                         '  COMMAND = :\n'
+                         '  RESTAT = 1\n')
+                  t = re.sub(pat, rep, t, count=1, flags=re.MULTILINE | re.DOTALL)
+              else:
+                  print("NO MATCH for icon rule: " + icon)
+
           with open('build.ninja', 'w') as f:
               f.write(t)
           print('build.ninja patched OK')

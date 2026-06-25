@@ -346,19 +346,25 @@ jobs:
       - name: Collect outputs
         if: always()
         run: |
+          set -x
           mkdir -p ${{ github.workspace }}/output
           echo "=== Searching for built files ==="
-          find ${{ github.workspace }}/blender36/build -name "*.so" -o -name "*.a" 2>/dev/null | head -50
-          find ${{ github.workspace }}/blender36/build -name "libblender*" 2>/dev/null | head -10
+          find ${{ github.workspace }}/blender36/build -name "*.so" -o -name "*.a" 2>/dev/null | head -50 || echo "(no .so/.a found)"
+          find ${{ github.workspace }}/blender36/build -name "libblender*" 2>/dev/null | head -10 || echo "(no libblender* found)"
+          find ${{ github.workspace }}/blender36/build -name "*.o" 2>/dev/null | head -10 || echo "(no .o found)"
           # Copy all .a files (Blender modules) for APK linking
+          echo "=== Copying .a files ==="
+          ls ${{ github.workspace }}/blender36/build/lib/ 2>/dev/null || echo "(no lib dir)"
           find ${{ github.workspace }}/blender36/build -name "libbf_*.a" -exec cp {} ${{ github.workspace }}/output/ \; 2>/dev/null || true
           find ${{ github.workspace }}/blender36/build -name "libextern_*.a" -exec cp {} ${{ github.workspace }}/output/ \; 2>/dev/null || true
           find ${{ github.workspace }}/blender36/build -name "libcycles_*.a" -exec cp {} ${{ github.workspace }}/output/ \; 2>/dev/null || true
           # Copy the final .so if built
-          cp ${{ github.workspace }}/blender36/build/lib/libblender.so ${{ github.workspace }}/output/ 2>/dev/null || true
+          cp ${{ github.workspace }}/blender36/build/lib/libblender.so ${{ github.workspace }}/output/ 2>/dev/null || echo "(no libblender.so)"
           # Copy logs
-          cp blender36/build/cmake_config.log ${{ github.workspace }}/output/ 2>/dev/null || true
-          cp blender36/build/build.log ${{ github.workspace }}/output/ 2>/dev/null || true
+          cp ${{ github.workspace }}/blender36/build/cmake_config.log ${{ github.workspace }}/output/ 2>/dev/null || echo "(no cmake_config.log)"
+          cp ${{ github.workspace }}/blender36/build/build.log ${{ github.workspace }}/output/ 2>/dev/null || echo "(no build.log)"
+          echo "=== Output files ==="
+          ls -la ${{ github.workspace }}/output/
 
       - name: Upload artifacts
         if: always()

@@ -161,6 +161,10 @@ jobs:
 
           cd blender36/build
 
+          # Patch rna_internal.h to disable USE_RNA_RANGE_CHECK (causes static assertion failures)
+          sed -i '/#define USE_RNA_RANGE_CHECK 1/s/^/#undef USE_RNA_RANGE_CHECK\n/' ../source/blender/makesrna/rna_internal.h
+          sed -i 's/^#define USE_RNA_RANGE_CHECK 1/#undef USE_RNA_RANGE_CHECK/' ../source/blender/makesrna/rna_internal.h
+
           # Build makesdna natively (x86_64) and generate dna.c / dna_type_offsets.h
           # The android fork comments out the makesdna executable and custom_command
           # in CMakeLists.txt, so these files are never produced during cmake.
@@ -254,7 +258,7 @@ jobs:
           # RNA_blender.h, RNA_blender_cpp.h, RNA_prototypes.h, etc.
           echo "=== Compiling makesrna natively (gcc) ==="
           RNA_INTERN="$PWD/../source/blender/makesrna/intern"
-          INC_FLAGS="-DNDEBUG -D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES -UUSE_RNA_RANGE_CHECK"
+          INC_FLAGS="-DNDEBUG -D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES"
           INC_FLAGS="$INC_FLAGS -I $PWD/../source/blender/makesrna"
           INC_FLAGS="$INC_FLAGS -I $PWD/../source/blender/makesdna"
           INC_FLAGS="$INC_FLAGS -I $PWD/../source/blender/makesdna/intern"

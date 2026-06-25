@@ -62,14 +62,15 @@ jobs:
           mkdir -p /tmp/host_tools
           # Compile datatoc natively for x86_64, since cross-compiled ARM64
           # versions can't run under QEMU (missing Android linker).
-          gcc -o /tmp/host_tools/datatoc \
+          # Use -DNDEBUG to match the Release build (asserts disabled).
+          gcc -DNDEBUG -o /tmp/host_tools/datatoc \
             -I blender36/source/blender/datatoc \
             -I blender36/source/blender/makesdna \
             -I blender36/source/blender/blenlib \
             blender36/source/blender/datatoc/datatoc.c
           # datatoc_icon also needs libpng-dev
           sudo apt-get install -y libpng-dev 2>/dev/null || true
-          gcc -o /tmp/host_tools/datatoc_icon \
+          gcc -DNDEBUG -o /tmp/host_tools/datatoc_icon \
             -I blender36/source/blender/datatoc \
             -I blender36/source/blender/makesdna \
             -I blender36/source/blender/blenlib \

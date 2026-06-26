@@ -121,7 +121,7 @@ jobs:
             -DWITH_TBB=ON \
             -DWITH_GMP=ON \
             -DWITH_OPENSUBDIV=ON \
-            -DWITH_OPENCOLLADA=ON \
+            -DWITH_OPENCOLLADA=OFF \
             -DWITH_FFTW3=ON \
             -DWITH_OPENIMAGEDENOISE=ON \
             -DWITH_COMPOSITOR_CPU=OFF \

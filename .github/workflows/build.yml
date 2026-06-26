@@ -434,7 +434,7 @@ jobs:
         \ files to $LIB_DIR\"\n\n# Commit and push\ngit add -f \"$LIB_DIR\"/*.a\nif git\
         \ diff --staged --quiet; then\n  echo \"No changes to commit\"\nelse\n  git\
         \ commit -m \"Update Blender .a libraries from build #${{ github.run_number\
-        \ }}\"\n  git push origin main\n  echo \"Pushed updated .a files to ${TARGET_REPO}\"\
+        \ }}\"\n  git push https://${GH_TOKEN}@github.com/${TARGET_REPO}.git main\n  echo \"Pushed updated .a files to ${TARGET_REPO}\"\
         \nfi"
     - name: Upload artifacts
       if: always()

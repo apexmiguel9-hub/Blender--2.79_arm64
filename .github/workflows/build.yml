@@ -431,7 +431,7 @@ jobs:
         \ }}/output/libextern_*.a \"$LIB_DIR/\" 2>/dev/null || true\ncp ${{ github.workspace\
         \ }}/output/libcycles_*.a \"$LIB_DIR/\" 2>/dev/null || true\n\n# Count files\n\
         COUNT=$(find \"$LIB_DIR\" -name \"*.a\" | wc -l)\necho \"Copied $COUNT .a\
-        \ files to $LIB_DIR\"\n\n# Commit and push\ngit add \"$LIB_DIR\"/*.a\nif git\
+        \ files to $LIB_DIR\"\n\n# Commit and push\ngit add -f \"$LIB_DIR\"/*.a\nif git\
         \ diff --staged --quiet; then\n  echo \"No changes to commit\"\nelse\n  git\
         \ commit -m \"Update Blender .a libraries from build #${{ github.run_number\
         \ }}\"\n  git push origin main\n  echo \"Pushed updated .a files to ${TARGET_REPO}\"\

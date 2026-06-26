@@ -435,6 +435,17 @@ jobs:
         \ commit -m \"Update Blender .a libraries from build #${{ github.run_number\
         \ }}\"\n  git push https://${{ github.token }}@github.com/${TARGET_REPO}.git main\n  echo \"Pushed updated .a files to ${TARGET_REPO}\"\
         \nfi"
+    - name: Upload .a files as artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: blender-a-libraries
+        path: |
+          ${{ github.workspace }}/output/libbf_*.a
+          ${{ github.workspace }}/output/libextern_*.a
+          ${{ github.workspace }}/output/libcycles_*.a
+        retention-days: 7
+
     - name: Upload artifacts
       if: always()
       uses: actions/upload-artifact@v4

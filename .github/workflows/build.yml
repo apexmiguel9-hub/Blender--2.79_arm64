@@ -1,5 +1,5 @@
 name: Build Blender 3.6.22 for Android ARM64
-true:
+on:
   push:
     branches:
     - main

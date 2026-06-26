@@ -45,12 +45,12 @@ int rna_FluidModifier_grid_get_length(const PointerRNA *ptr, int *length);
 int rna_FluidModifier_color_grid_get_length(const PointerRNA *ptr, int *length);
 int rna_FluidModifier_velocity_grid_get_length(const PointerRNA *ptr, int *length);
 int rna_FluidModifier_heat_grid_get_length(const PointerRNA *ptr, int *length);
-void rna_FluidModifier_density_grid_get(const PointerRNA *ptr, float *values);
-void rna_FluidModifier_velocity_grid_get(const PointerRNA *ptr, float *values);
-void rna_FluidModifier_color_grid_get(const PointerRNA *ptr, float *values);
-void rna_FluidModifier_flame_grid_get(const PointerRNA *ptr, float *values);
-void rna_FluidModifier_heat_grid_get(const PointerRNA *ptr, float *values);
-void rna_FluidModifier_temperature_grid_get(const PointerRNA *ptr, float *values);"""
+void rna_FluidModifier_density_grid_get(PointerRNA *ptr, float *values);
+void rna_FluidModifier_velocity_grid_get(PointerRNA *ptr, float *values);
+void rna_FluidModifier_color_grid_get(PointerRNA *ptr, float *values);
+void rna_FluidModifier_flame_grid_get(PointerRNA *ptr, float *values);
+void rna_FluidModifier_heat_grid_get(PointerRNA *ptr, float *values);
+void rna_FluidModifier_temperature_grid_get(PointerRNA *ptr, float *values);"""
         content = content[:idx2 + len("int rna_lang_enum_properties_get_no_international(PointerRNA *ptr);")] + "\n" + fluid_decls + content[idx2 + len("int rna_lang_enum_properties_get_no_international(PointerRNA *ptr);"):]
     
     with open(os.path.join(base, "source/blender/makesrna/intern/rna_internal.h"), 'w') as f:

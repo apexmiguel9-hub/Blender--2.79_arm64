@@ -438,10 +438,9 @@ jobs:
         path: ${{ github.workspace }}/output/*
     - name: Trigger app build
       if: success()
-      uses: peter-evans/repository-dispatch@v3
-      with:
-        token: ${{ secrets.GH_TOKEN }}
-        repository: apexmiguel9-hub/blender-android-3.6
-        event-type: blender-libs-updated
-        client-payload: '{"run_id": "${{ github.run_id }}", "run_number": "${{ github.run_number
-          }}", "commit_sha": "${{ github.sha }}"}'
+      run: |
+        curl -s -X POST \
+          -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/apexmiguel9-hub/blender-android-3.6/dispatches" \
+          -d '{"event_type":"blender-libs-updated","client_payload":{"run_id":"${{ github.run_id }}","run_number":"${{ github.run_number }}","commit_sha":"${{ github.sha }}"}}'
